@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asistente virtual</title>
+</head>
+<body>
+
+<div id="chatbot">
+  <button id="chat-open" aria-label="Abrir chat">💬</button>
+
+  <section id="chat-window" hidden>
+    <header class="chat-header">
+      <div>
+        <strong>Asistente virtual</strong>
+        <div class="subtitle">Estamos aquí para ayudarte</div>
+      </div>
+      <button id="chat-close" aria-label="Cerrar chat">×</button>
+    </header>
+
+    <div id="chat-messages" aria-live="polite">
+      <div class="message bot">
+        ¡Hola! 👋 ¿En qué podemos ayudarte hoy?
+      </div>
+    </div>
+
+    <form id="chat-form">
+      <input
+        id="chat-input"
+        type="text"
+        placeholder="Escribe tu mensaje..."
+        maxlength="2000"
+        autocomplete="off"
+        required
+      >
+      <button id="chat-send" type="submit">Enviar</button>
+    </form>
+  </section>
+</div>
+
+<style>
+  #chatbot, #chatbot * {
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+  }
+
+  #chat-open {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 99999;
+    width: 62px;
+    height: 62px;
+    border: none;
+    border-radius: 50%;
+    background: #2563eb;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px #0003;
+  }
+
+  #chat-window {
+    position: fixed;
+    right: 22px;
+    bottom: 96px;
+    z-index: 99999;
+    width: min(350px, calc(100vw - 28px));
+    height: 450px;
+    max-height: calc(100dvh - 120px);
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px #0003;
+  }
+
+  #chat-window[hidden] {
+    display: none;
+  }
+
+  .chat-header {
+    height: 68px;
+    padding: 12px 16px;
+    background: #2563eb;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  #chat-close {
+    background: transparent;
+    color: white;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+  }
+
+  #chat-messages {
+    height: calc(100% - 134px);
+    padding: 14px;
+    overflow-y: auto;
+    background: #f8fafc;
+  }
+
+  .message {
+    max-width: 90%;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .message.bot {
+    margin-right: auto;
+    background: #e5e7eb;
+    color: #111827;
+  }
+
+  .message.user {
+    margin-left: auto;
+    background: #2563eb;
+    color: white;
+  }
+
+  #chat-form {
+    height: 66px;
+    padding: 10px;
+    display: flex;
+    gap: 7px;
+    border-top: 1px solid #ddd;
+  }
+
+  #chat-input {
+    flex: 1;
+    min-width: 0;
+    width: 0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 9px;
+    font-size: 14px;
+  }
+
+  #chat-send {
+    padding: 0 12px;
+    border: none;
+    border-radius: 9px;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+  }
+
+  #chat-send:disabled {
+    opacity: .6;
+    cursor: wait;
+  }
+</style>
+
+<script>
+(() => {
+  const API_URL = "/api/chat";
+
+  const openButton = document.getElementById("chat-open");
+  const closeButton = document.getElementById("chat-close");
+  const windowChat = document.getElementById("chat-window");
+  const form = document.getElementById("chat-form");
+  const input = document.getElementById("chat-input");
+  const sendButton = document.getElementById("chat-send");
+  const messagesBox = document.getElementById("chat-messages");
+
+  const history = [];
+
+  openButton.addEventListener("click", () => {
+    windowChat.hidden = false;
+    openButton.hidden = true;
+    input.focus();
+  });
+
+  closeButton.addEventListener("click", () => {
+    windowChat.hidden = true;
+    openButton.hidden = false;
+  });
+
+  function addMessage(text, role) {
+    const message = document.createElement("div");
+    message.className = "message " + role;
+    message.textContent = text;
+    messagesBox.appendChild(message);
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+    return message;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const text = input.value.trim();
+
+    if (!text || sendButton.disabled) return;
+
+    addMessage(text, "user");
+    history.push({ role: "user", content: text });
+
+    input.value = "";
+    sendButton.disabled = true;
+
+    const loading = addMessage("Escribiendo...", "bot");
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messages: history
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Error del servidor");
+      }
+
+      const data = await response.json();
+
+      if (typeof data.reply !== "string") {
+        throw new Error("Respuesta inválida");
+      }
+
+      loading.textContent = data.reply;
+
+      history.push({
+        role: "assistant",
+        content: data.reply
+      });
+    } catch (error) {
+      loading.textContent =
+        "No pude conectarme con el asistente. Inténtalo de nuevo.";
+
+      history.pop();
+    } finally {
+      sendButton.disabled = false;
+      input.focus();
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
