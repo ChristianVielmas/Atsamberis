@@ -98,6 +98,10 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.listen(port, () => {
-  console.log(`Chatbot activo en http://localhost:${port}`);
-});
+if (process.env.VERCEL !== "1") {
+  app.listen(port, () => {
+    console.log(`Chatbot activo en http://localhost:${port}`);
+  });
+}
+
+export default app;
