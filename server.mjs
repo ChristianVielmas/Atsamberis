@@ -26,6 +26,10 @@ app.use(cors({
 app.use(express.json({ limit: "20kb" }));
 app.use(express.static("public"));
 
+app.get("/", (req, res) => {
+  res.sendFile(process.cwd() + "/public/index.html");
+});
+
 app.use("/api/", rateLimit({
   windowMs: 60 * 1000,
   limit: 15
